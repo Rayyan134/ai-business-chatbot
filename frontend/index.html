@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Business Assistant</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 60%;
+            margin: auto;
+            padding-top: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+        }
+
+        #chatBox {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background: #fff;
+            border-radius: 10px;
+        }
+
+        .msg {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 10px;
+            max-width: 70%;
+        }
+
+        .user {
+            background: #d1e7ff;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .bot {
+            background: #e9e9e9;
+        }
+
+        input {
+            width: 80%;
+            padding: 10px;
+        }
+
+        button {
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="card">
+        <h2>📄 Upload PDF</h2>
+        <input type="file" id="fileInput">
+        <button onclick="uploadFile()">Upload</button>
+    </div>
+
+    <div class="card">
+        <h2>💬 Chat</h2>
+
+        <div id="chatBox"></div>
+
+        <br>
+
+        <input type="text" id="question" placeholder="Ask something...">
+        <button onclick="askQuestion()">Send</button>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+
+</body>
+</html>
