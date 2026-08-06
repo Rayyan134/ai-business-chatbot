@@ -1,12 +1,12 @@
 # AI Operational Risk Copilot Tasks
 
 ## Milestone 1
-- [ ] Initialize frontend
-- [ ] Create dashboard
-- [ ] Sidebar
-- [ ] Navbar
-- [ ] KPI Cards
-- [ ] Charts
+- [X] Initialize frontend
+- [X] Create dashboard
+- [X] Sidebar
+- [X] Navbar
+- [X] KPI Cards
+- [X] Charts
 
 ## Milestone 2
 - [ ] Upload page
