@@ -9,16 +9,16 @@
 - [X] Charts
 
 ## Milestone 2
-- [ ] Upload page
-- [ ] Drag & Drop
-- [ ] File validation
-- [ ] Upload API
+- [X] Upload page
+- [X] Drag & Drop
+- [X] File validation
+- [X] Upload API
 
 ## Milestone 3
-- [ ] AI Analysis
-- [ ] Executive Summary
-- [ ] Risk Table
-- [ ] Recommendations
+- [X] AI Analysis
+- [X] Executive Summary
+- [X] Risk Table
+- [X] Recommendations
 
 ## Milestone 4
 - [ ] Word Export

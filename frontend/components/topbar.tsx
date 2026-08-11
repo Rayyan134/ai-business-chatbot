@@ -5,9 +5,10 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 interface TopBarProps {
   onMenuClick: () => void;
+  title?: string;
 }
 
-export function TopBar({ onMenuClick }: TopBarProps) {
+export function TopBar({ onMenuClick, title = "Dashboard" }: TopBarProps) {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border-subtle bg-background/80 px-4 backdrop-blur sm:px-6">
       <button
@@ -21,7 +22,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
       <div className="flex items-center gap-2">
         <h1 className="text-base font-semibold text-foreground sm:text-lg">
-          Dashboard
+          {title}
         </h1>
       </div>
 

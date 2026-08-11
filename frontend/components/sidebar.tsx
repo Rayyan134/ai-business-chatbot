@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import {
   BadgeCheck,
   ClipboardCheck,
@@ -12,6 +13,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sparkles,
+  UploadCloud,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -20,7 +22,6 @@ interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
-  active?: boolean;
 }
 
 interface NavSection {
@@ -32,7 +33,8 @@ const navSections: NavSection[] = [
   {
     label: "Overview",
     items: [
-      { label: "Dashboard", href: "/", icon: LayoutDashboard, active: true },
+      { label: "Dashboard", href: "/", icon: LayoutDashboard },
+      { label: "Upload Documents", href: "/upload", icon: UploadCloud },
       { label: "Risk Register", href: "#", icon: ShieldAlert },
       { label: "Exceptions", href: "#", icon: FileWarning },
     ],
@@ -48,7 +50,7 @@ const navSections: NavSection[] = [
   {
     label: "Intelligence",
     items: [
-      { label: "AI Analysis", href: "#", icon: Sparkles },
+      { label: "AI Analysis", href: "/analysis/results", icon: Sparkles },
       { label: "Reports", href: "#", icon: FileText },
     ],
   },
@@ -67,6 +69,12 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
+  const pathname = usePathname();
+
+  function isActive(item: NavItem) {
+    return item.href !== "#" && pathname === item.href;
+  }
+
   return (
     <>
       {open ? (
@@ -115,13 +123,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               <ul className="space-y-1">
                 {section.items.map((item) => {
                   const Icon = item.icon;
+                  const active = isActive(item);
                   return (
                     <li key={item.label}>
                       <a
                         href={item.href}
-                        aria-current={item.active ? "page" : undefined}
+                        aria-current={active ? "page" : undefined}
                         className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                          item.active
+                          active
                             ? "bg-primary/10 text-primary"
                             : "text-muted-foreground hover:bg-surface-elevated hover:text-foreground"
                         }`}
