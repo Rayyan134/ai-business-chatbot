@@ -9,10 +9,18 @@ export const metadata: Metadata = {
     "AI-generated monthly operational risk report preview for Meridian Bank.",
 };
 
-export default function ReportPreviewPage() {
+export default async function ReportPreviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ runId?: string; resultId?: string }>;
+}) {
+  const params = await searchParams;
   return (
     <AppShell title="Report Preview">
-      <ReportToolbar />
+      <ReportToolbar
+        runId={params.runId ?? null}
+        resultId={params.resultId ?? null}
+      />
       <ReportDocument />
     </AppShell>
   );

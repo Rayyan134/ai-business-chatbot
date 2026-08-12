@@ -2,6 +2,7 @@ import { Sparkles } from "lucide-react";
 
 interface ActionBarProps {
   enabled: boolean;
+  busy?: boolean;
   uploadedCount: number;
   requiredCount: number;
   onAnalyze: () => void;
@@ -9,6 +10,7 @@ interface ActionBarProps {
 
 export function ActionBar({
   enabled,
+  busy = false,
   uploadedCount,
   requiredCount,
   onAnalyze,
@@ -30,15 +32,15 @@ export function ActionBar({
         <button
           type="button"
           onClick={onAnalyze}
-          disabled={!enabled}
+          disabled={!enabled || busy}
           className={`inline-flex w-full items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold transition-all duration-200 sm:w-auto ${
-            enabled
+            enabled && !busy
               ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 hover:brightness-110 active:scale-[0.98]"
               : "cursor-not-allowed bg-border-subtle text-muted-foreground"
           }`}
         >
           <Sparkles className="h-4 w-4" />
-          Analyze Documents
+          {busy ? "Starting analysis…" : "Analyze Documents"}
         </button>
       </div>
     </div>

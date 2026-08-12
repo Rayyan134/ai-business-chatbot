@@ -7,10 +7,15 @@ export const metadata: Metadata = {
   description: "Analyzing operational risk documents for Meridian Bank.",
 };
 
-export default function AnalysisProcessingPage() {
+export default async function AnalysisProcessingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ runId?: string }>;
+}) {
+  const { runId } = await searchParams;
   return (
     <AppShell title="AI Analysis">
-      <AnalysisProcessing />
+      <AnalysisProcessing runId={runId} />
     </AppShell>
   );
 }

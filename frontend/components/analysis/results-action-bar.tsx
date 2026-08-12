@@ -4,21 +4,35 @@ import { Download, FileText, MessageSquare, Presentation } from "lucide-react";
 
 interface ResultsActionBarProps {
   onAskCopilot?: () => void;
+  runId?: string | null;
+  resultId?: string | null;
 }
 
-export function ResultsActionBar({ onAskCopilot }: ResultsActionBarProps) {
+function previewHref(path: string, runId: string | null, resultId: string | null) {
+  if (!runId && !resultId) return path;
+  const params = new URLSearchParams();
+  if (runId) params.set("runId", runId);
+  if (resultId) params.set("resultId", resultId);
+  return `${path}?${params.toString()}`;
+}
+
+export function ResultsActionBar({
+  onAskCopilot,
+  runId = null,
+  resultId = null,
+}: ResultsActionBarProps) {
   return (
     <div className="sticky bottom-0 -mx-4 border-t border-border-subtle bg-background/85 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
       <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
         <a
-          href="/reports/preview"
+          href={previewHref("/reports/preview", runId, resultId)}
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-border-subtle bg-surface px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-elevated"
         >
           <FileText className="h-4 w-4" />
           Generate Word Report
         </a>
         <a
-          href="/presentations/preview"
+          href={previewHref("/presentations/preview", runId, resultId)}
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-border-subtle bg-surface px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-elevated"
         >
           <Presentation className="h-4 w-4" />

@@ -21,10 +21,10 @@
 - [X] Recommendations
 
 ## Milestone 4
-- [ ] Word Export
+- [X] Word Export
 
 ## Milestone 5
-- [ ] PowerPoint Export
+- [X] PowerPoint Export
 
 ## Milestone 6
 - [ ] AI Chat

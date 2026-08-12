@@ -4,12 +4,24 @@ import { useState } from "react";
 import { ResultsActionBar } from "@/components/analysis/results-action-bar";
 import { CopilotPanel } from "@/components/copilot/copilot-panel";
 
-export function CopilotTrigger() {
+interface CopilotTriggerProps {
+  runId?: string | null;
+  resultId?: string | null;
+}
+
+export function CopilotTrigger({
+  runId = null,
+  resultId = null,
+}: CopilotTriggerProps) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <ResultsActionBar onAskCopilot={() => setOpen(true)} />
+      <ResultsActionBar
+        onAskCopilot={() => setOpen(true)}
+        runId={runId}
+        resultId={resultId}
+      />
       <CopilotPanel open={open} onClose={() => setOpen(false)} />
     </>
   );

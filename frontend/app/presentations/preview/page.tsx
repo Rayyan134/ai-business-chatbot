@@ -9,10 +9,20 @@ export const metadata: Metadata = {
     "AI-generated board presentation preview for Meridian Bank, July 2026.",
 };
 
-export default function PresentationsPreviewPage() {
+export default async function PresentationsPreviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ runId?: string; resultId?: string }>;
+}) {
+  const params = await searchParams;
   return (
     <AppShell title="Board Presentation Preview">
-      <SlideViewer slides={deckSlides} meta={presentationMeta} />
+      <SlideViewer
+        slides={deckSlides}
+        meta={presentationMeta}
+        runId={params.runId ?? null}
+        resultId={params.resultId ?? null}
+      />
     </AppShell>
   );
 }

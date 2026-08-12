@@ -14,6 +14,7 @@ import {
   Printer,
   StickyNote,
 } from "lucide-react";
+import { ApiError, downloadExport } from "@/lib/api-client";
 
 type ActionState = "idle" | "generating" | "done";
 
@@ -35,6 +36,8 @@ interface PresentationToolbarProps {
   onToggleNotes: () => void;
   fullscreen: boolean;
   onToggleFullscreen: () => void;
+  runId?: string | null;
+  resultId?: string | null;
 }
 
 export function PresentationToolbar({
@@ -46,17 +49,22 @@ export function PresentationToolbar({
   onToggleNotes,
   fullscreen,
   onToggleFullscreen,
+  runId = null,
+  resultId = null,
 }: PresentationToolbarProps) {
   const [pptxState, setPptxState] = useState<ActionState>("idle");
   const [pdfState, setPdfState] = useState<ActionState>("idle");
+  const [pptxError, setPptxError] = useState<string | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const hasExportTarget = Boolean(runId || resultId);
 
   useEffect(() => {
     const timers = timersRef.current;
     return () => timers.forEach((timer) => clearTimeout(timer));
   }, []);
 
-  function handleAction(
+  function handleSimulated(
     state: ActionState,
     setState: (next: ActionState) => void,
   ) {
@@ -69,6 +77,26 @@ export function PresentationToolbar({
         GENERATE_DURATION + DONE_DURATION,
       ),
     );
+  }
+
+  async function handlePptxDownload() {
+    if (pptxState !== "idle") return;
+    setPptxState("generating");
+    setPptxError(null);
+    try {
+      await downloadExport("powerpoint", { runId, resultId });
+      setPptxState("done");
+      timersRef.current.push(
+        setTimeout(() => setPptxState("idle"), DONE_DURATION),
+      );
+    } catch (error) {
+      setPptxState("idle");
+      setPptxError(
+        error instanceof ApiError
+          ? error.message
+          : "Presentation download failed. Please try again.",
+      );
+    }
   }
 
   return (
@@ -135,8 +163,13 @@ export function PresentationToolbar({
           </button>
           <button
             type="button"
-            onClick={() => handleAction(pptxState, setPptxState)}
+            onClick={() => void handlePptxDownload()}
             disabled={pptxState !== "idle"}
+            title={
+              hasExportTarget
+                ? "Download the generated .pptx deck"
+                : "No analysis result to export. Run an analysis first."
+            }
             className={buttonClass}
           >
             {pptxState === "generating" ? (
@@ -158,7 +191,7 @@ export function PresentationToolbar({
           </button>
           <button
             type="button"
-            onClick={() => handleAction(pdfState, setPdfState)}
+            onClick={() => handleSimulated(pdfState, setPdfState)}
             disabled={pdfState !== "idle"}
             className={buttonClass}
           >
@@ -181,6 +214,17 @@ export function PresentationToolbar({
           </button>
         </div>
       </div>
+      {pptxError ? (
+        <p className="mt-2 text-sm font-medium text-rose-600 dark:text-rose-400">
+          {pptxError}
+        </p>
+      ) : null}
+      {!hasExportTarget ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Open this deck from an analysis result to download the generated
+          file. Preview content shown here is sample data.
+        </p>
+      ) : null}
     </div>
   );
 }

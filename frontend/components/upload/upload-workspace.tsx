@@ -8,7 +8,7 @@ import { RecentUploadsTable } from "@/components/upload/recent-uploads-table";
 import { SupportedFormats } from "@/components/upload/supported-formats";
 import { UploadCard } from "@/components/upload/upload-card";
 import { DOC_TYPES, initialRecentUploads } from "@/lib/upload-data";
-import { handleUpload } from "@/lib/upload-service";
+import { analyzeDocuments, handleUpload } from "@/lib/upload-service";
 import type {
   DocTypeId,
   RecentUploadRow,
@@ -44,6 +44,8 @@ export function UploadWorkspace() {
 
   const timersRef = useRef<Partial<Record<DocTypeId, ReturnType<typeof setInterval>>>>({});
   const completionsRef = useRef<Partial<Record<DocTypeId, ReturnType<typeof setTimeout>>>>({});
+  const uploadIdsRef = useRef<Partial<Record<DocTypeId, string>>>({});
+  const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
     const loadingTimer = setTimeout(() => setRecentLoading(false), 900);
@@ -99,7 +101,9 @@ export function UploadWorkspace() {
       ...prev,
     ]);
 
-    void handleUpload(file);
+    void handleUpload(file).then((record) => {
+      if (record) uploadIdsRef.current[docType] = record.id;
+    });
   }
 
   function uploadFile(docType: DocTypeId, file: File) {
@@ -164,8 +168,25 @@ export function UploadWorkspace() {
     setUploads((prev) => ({ ...prev, [docType]: null }));
   }
 
-  function handleAnalyze() {
-    router.push("/analysis/processing");
+  async function handleAnalyze() {
+    if (analyzing) return;
+    setAnalyzing(true);
+    try {
+      const documentIds = REQUIRED_TYPES.filter(
+        (docType) => uploads[docType]?.state === "uploaded",
+      )
+        .map((docType) => uploadIdsRef.current[docType])
+        .filter((id): id is string => Boolean(id));
+
+      const runId = await analyzeDocuments(documentIds);
+      router.push(
+        runId
+          ? `/analysis/processing?runId=${encodeURIComponent(runId)}`
+          : "/analysis/processing",
+      );
+    } finally {
+      setAnalyzing(false);
+    }
   }
 
   const requiredUploaded = REQUIRED_TYPES.filter(
@@ -224,6 +245,7 @@ export function UploadWorkspace() {
 
       <ActionBar
         enabled={analyzeEnabled}
+        busy={analyzing}
         uploadedCount={requiredUploaded}
         requiredCount={REQUIRED_TYPES.length}
         onAnalyze={handleAnalyze}

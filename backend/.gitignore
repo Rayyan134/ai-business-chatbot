@@ -1,0 +1,12 @@
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# environment
+.env
+
+# uploaded / parsed documents (sensitive data — never commit)
+uploads/

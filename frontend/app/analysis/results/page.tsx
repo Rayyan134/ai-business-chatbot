@@ -25,6 +25,8 @@ import {
   riskHeatmap,
   riskTrend,
 } from "@/lib/analysis-data";
+import { toAnalysisData } from "@/lib/analysis-adapter";
+import { resolveAnalysisSource } from "@/lib/analysis-flow";
 
 export const metadata: Metadata = {
   title: "AI Analysis Results · Risk Copilot",
@@ -45,7 +47,32 @@ const metricIcons: Record<string, React.ReactNode> = {
   ),
 };
 
-export default function AnalysisResultsPage() {
+export default async function AnalysisResultsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ runId?: string; resultId?: string }>;
+}) {
+  const params = await searchParams;
+  const source = await resolveAnalysisSource({
+    runId: params.runId ?? null,
+    resultId: params.resultId ?? null,
+  });
+
+  const view =
+    source.kind === "real" ? toAnalysisData(source.result) : null;
+  const warnings =
+    source.kind === "real" ? source.result.warnings : null;
+
+  const display = view ?? {
+    overallScore,
+    analysisSummary,
+    metrics,
+    recommendations,
+    riskHeatmap,
+    riskTrend,
+    keyFindings,
+  };
+
   return (
     <AppShell title="AI Analysis Results">
       <div className="space-y-6">
@@ -55,7 +82,7 @@ export default function AnalysisResultsPage() {
               AI Analysis Results
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Generated {analysisSummary.generatedAt} · Meridian Bank
+              Generated {display.analysisSummary.generatedAt} · Meridian Bank
             </p>
           </div>
           <a
@@ -67,10 +94,21 @@ export default function AnalysisResultsPage() {
           </a>
         </div>
 
+        {warnings && warnings.length > 0 ? (
+          <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="space-y-1">
+              {warnings.map((warning) => (
+                <p key={warning}>{warning}</p>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <RiskScoreCard score={overallScore} />
+          <RiskScoreCard score={display.overallScore} />
           <div className="lg:col-span-2">
-            <ExecutiveSummary summary={analysisSummary} />
+            <ExecutiveSummary summary={display.analysisSummary} />
           </div>
         </div>
 
@@ -78,7 +116,7 @@ export default function AnalysisResultsPage() {
           aria-label="Risk metrics"
           className="grid grid-cols-2 gap-4 xl:grid-cols-4"
         >
-          {metrics.map((metric) => (
+          {display.metrics.map((metric) => (
             <MetricCard
               key={metric.id}
               metric={metric}
@@ -89,7 +127,7 @@ export default function AnalysisResultsPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3">
-            <RiskHeatmap rows={riskHeatmap} />
+            <RiskHeatmap rows={display.riskHeatmap} />
           </div>
           <Card className="lg:col-span-2">
             <CardHeader
@@ -97,7 +135,7 @@ export default function AnalysisResultsPage() {
               subtitle="Prioritized by estimated risk impact"
             />
             <div className="divide-y divide-border-subtle">
-              {recommendations.map((recommendation) => (
+              {display.recommendations.map((recommendation) => (
                 <RecommendationCard
                   key={recommendation.id}
                   recommendation={recommendation}
@@ -107,11 +145,14 @@ export default function AnalysisResultsPage() {
           </Card>
         </div>
 
-        <RiskTrendChart data={riskTrend} />
+        <RiskTrendChart data={display.riskTrend} />
 
-        <KeyFindingsTable findings={keyFindings} />
+        <KeyFindingsTable findings={display.keyFindings} />
 
-        <CopilotTrigger />
+        <CopilotTrigger
+          runId={params.runId ?? null}
+          resultId={source.kind === "real" ? source.result.id : null}
+        />
       </div>
     </AppShell>
   );

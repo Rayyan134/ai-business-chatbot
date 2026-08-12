@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrainCircuit } from "lucide-react";
 import { CircularProgress } from "@/components/analysis/circular-progress";
 import { ProcessingChecklist } from "@/components/analysis/processing-checklist";
+import { pollAnalysisRun } from "@/lib/analysis-flow";
+import type { RunPollOutcome } from "@/lib/analysis-flow";
 
 const STEPS = [
   "Reading Risk Register",
@@ -21,10 +23,31 @@ const STEPS = [
 const TOTAL_DURATION = 7600;
 const COMPLETION_DELAY = 900;
 
-export function AnalysisProcessing() {
+interface AnalysisProcessingProps {
+  runId?: string | null;
+}
+
+export function AnalysisProcessing({ runId = null }: AnalysisProcessingProps) {
   const router = useRouter();
   const [progress, setProgress] = useState(0);
   const [current, setCurrent] = useState(0);
+  const [runOutcome, setRunOutcome] = useState<RunPollOutcome | null>(null);
+  const runResultIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!runId) return;
+    let cancelled = false;
+
+    void pollAnalysisRun(runId).then(({ outcome, run }) => {
+      if (cancelled) return;
+      runResultIdRef.current = run?.resultId ?? null;
+      setRunOutcome(outcome);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [runId]);
 
   useEffect(() => {
     let frame = 0;
@@ -60,6 +83,19 @@ export function AnalysisProcessing() {
       if (completionTimer) clearTimeout(completionTimer);
     };
   }, [router]);
+
+  useEffect(() => {
+    if (runOutcome === null) return;
+    if (runOutcome === "ready" || runOutcome === "partial") {
+      const query =
+        runResultIdRef.current && runId
+          ? `?runId=${encodeURIComponent(runId)}&resultId=${encodeURIComponent(
+              runResultIdRef.current,
+            )}`
+          : "";
+      router.replace(`/analysis/results${query}`);
+    }
+  }, [runOutcome, runId, router]);
 
   const activeLabel =
     current < STEPS.length ? STEPS[current] : "Finalizing executive dashboard";

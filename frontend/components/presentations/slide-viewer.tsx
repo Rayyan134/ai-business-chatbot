@@ -18,6 +18,8 @@ import type { SlideComponentProps } from "@/components/presentations/presentatio
 interface SlideViewerProps {
   slides: DeckSlide[];
   meta: PresentationMeta;
+  runId?: string | null;
+  resultId?: string | null;
 }
 
 function renderSlide({ slide, index, total, meta }: SlideComponentProps) {
@@ -57,7 +59,12 @@ function renderSlide({ slide, index, total, meta }: SlideComponentProps) {
   }
 }
 
-export function SlideViewer({ slides, meta }: SlideViewerProps) {
+export function SlideViewer({
+  slides,
+  meta,
+  runId = null,
+  resultId = null,
+}: SlideViewerProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [notesOpen, setNotesOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -115,6 +122,8 @@ export function SlideViewer({ slides, meta }: SlideViewerProps) {
         onToggleNotes={() => setNotesOpen((open) => !open)}
         fullscreen={fullscreen}
         onToggleFullscreen={toggleFullscreen}
+        runId={runId}
+        resultId={resultId}
       />
 
       <div className="flex items-start gap-4">

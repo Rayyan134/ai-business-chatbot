@@ -1,0 +1,29 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import CORS_ORIGINS
+from app.routers import analysis, documents, exports
+
+app = FastAPI(
+    title="AI Operational Risk Copilot API",
+    description="Document ingestion and normalized extraction for the "
+    "operational risk copilot.",
+    version="0.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(documents.router)
+app.include_router(analysis.router)
+app.include_router(exports.router)
+
+
+@app.get("/health", tags=["system"])
+def health_check() -> dict:
+    return {"status": "ok"}
