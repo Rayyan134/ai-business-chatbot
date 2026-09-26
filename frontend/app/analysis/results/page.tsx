@@ -152,6 +152,7 @@ export default async function AnalysisResultsPage({
         <CopilotTrigger
           runId={params.runId ?? null}
           resultId={source.kind === "real" ? source.result.id : null}
+          analysisResult={source.kind === "real" ? source.result : null}
         />
       </div>
     </AppShell>

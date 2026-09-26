@@ -1,3 +1,6 @@
+import type { CopilotRequest, CopilotResponse } from "@/components/copilot/copilot-types";
+import type { AnalysisResult } from "@/lib/analysis-api-types";
+
 export type ChatRole = "user" | "assistant";
 
 export interface CopilotMessage {
@@ -7,6 +10,8 @@ export interface CopilotMessage {
   timestamp: string;
   confidence?: number;
   sources?: string[];
+  warnings?: string[];
+  grounded?: boolean;
 }
 
 export interface CopilotReply {
@@ -126,3 +131,89 @@ export const welcomeMessage: CopilotMessage = {
   confidence: 100,
   sources: ["Risk Register", "Audit Findings", "Exception Log", "MIS Reports"],
 };
+
+const MAX_WELCOME_SOURCES = 6;
+
+/**
+ * Derives the analysis period ("August 2026") from the result, preferring the
+ * summary generation timestamp and falling back to the creation timestamp.
+ * Returns null when neither is usable, so callers can omit the clause.
+ */
+export function analysisPeriod(result: AnalysisResult): string | null {
+  const candidates = [result.summary?.generatedAt, result.createdAt];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const date = new Date(candidate);
+    if (Number.isNaN(date.getTime())) continue;
+    return date.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+  }
+  return null;
+}
+
+/**
+ * Builds the welcome message for a real analysis run. Every number is derived
+ * from the AnalysisResult; nothing is hardcoded.
+ */
+export function buildRealWelcomeMessage(
+  result: AnalysisResult,
+  now: Date = new Date(),
+): CopilotMessage {
+  const documents = result.documents ?? [];
+  const documentCount = documents.length;
+  const period = analysisPeriod(result);
+  const periodClause = period ? ` from the ${period} cycle` : "";
+
+  const content =
+    documentCount > 0
+      ? `Hi Sarah, I'm Risk Copilot. I've analyzed your ${documentCount} operational risk ${
+          documentCount === 1 ? "document" : "documents"
+        }${periodClause}. Ask me about your highest risks, audit findings, department exposure or recommended actions.`
+      : "Hi Sarah, I'm Risk Copilot. This analysis run has no source documents attached yet, so I can only answer from the summary it produced. Ask me about the highest risks, audit findings, department exposure or recommended actions.";
+
+  return {
+    id: "welcome",
+    role: "assistant",
+    content,
+    timestamp: formatTime(now),
+    confidence: result.confidence ?? 0,
+    sources: documents
+      .map((document) => document.filename)
+      .filter((filename): filename is string => Boolean(filename))
+      .slice(0, MAX_WELCOME_SOURCES),
+  };
+}
+
+export function buildCopilotContext(
+  runId: string | null | undefined,
+  resultId: string | null | undefined,
+  message: string,
+): CopilotRequest {
+  return {
+    runId: runId ?? null,
+    resultId: resultId ?? null,
+    message,
+  };
+}
+
+export function toCopilotMessage(
+  response: CopilotResponse,
+  id: string,
+  timestamp: string,
+): CopilotMessage {
+  const sources = response.sources.map(
+    (source) => source.label || source.documentType || source.documentId || "Source",
+  );
+  return {
+    id,
+    role: "assistant",
+    content: response.answer,
+    timestamp,
+    confidence: response.confidence,
+    sources,
+    warnings: response.warnings,
+    grounded: response.grounded,
+  };
+}

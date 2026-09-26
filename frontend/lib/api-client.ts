@@ -7,6 +7,10 @@ import type {
   AnalysisResult,
   AnalysisRun,
 } from "@/lib/analysis-api-types";
+import type {
+  CopilotRequest,
+  CopilotResponse,
+} from "@/components/copilot/copilot-types";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -81,6 +85,20 @@ export async function fetchAnalysisResult(
   return request<AnalysisResult>(
     `/api/analysis/results/${encodeURIComponent(resultId)}`,
   );
+}
+
+export async function sendCopilotMessage(
+  payload: CopilotRequest,
+): Promise<CopilotResponse> {
+  return request<CopilotResponse>("/api/copilot/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      runId: payload.runId ?? null,
+      resultId: payload.resultId ?? null,
+      message: payload.message,
+    }),
+  });
 }
 
 export type ExportKind = "word" | "powerpoint";

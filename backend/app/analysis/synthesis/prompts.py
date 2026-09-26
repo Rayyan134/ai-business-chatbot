@@ -20,29 +20,33 @@ SYSTEM_PROMPT = (
     "- Reply with valid JSON matching the requested schema exactly."
 )
 
+# Kept out of the template on purpose: the template is rendered with str.format(),
+# and literal JSON braces inside it would be parsed as replacement fields.
+RESPONSE_SCHEMA = """{
+  "summaryParagraphs": [string, ...],
+  "recommendations": [
+    {
+      "priority": "Critical" | "High" | "Medium" | "Low",
+      "category": string,
+      "action": string,
+      "impact": string
+    }
+  ],
+  "managementActions": [
+    {
+      "action": string,
+      "owner": string,
+      "department": string,
+      "dueDate": string (YYYY-MM-DD),
+      "priority": "Critical" | "High" | "Medium" | "Low",
+      "status": string
+    }
+  ]
+}"""
+
 USER_PROMPT_TEMPLATE = (
     "Produce a JSON object with this exact schema:\n"
-    "{\n"
-    '  "summaryParagraphs": [string, ...],\n'
-    '  "recommendations": [\n'
-    "    {\n"
-    '      "priority": "Critical" | "High" | "Medium" | "Low",\n'
-    '      "category": string,\n'
-    '      "action": string,\n'
-    '      "impact": string\n'
-    "    }\n"
-    "  ],\n"
-    '  "managementActions": [\n'
-    "    {\n"
-    '      "action": string,\n'
-    '      "owner": string,\n'
-    '      "department": string,\n'
-    '      "dueDate": string (YYYY-MM-DD),\n'
-    '      "priority": "Critical" | "High" | "Medium" | "Low",\n'
-    '      "status": string\n'
-    "    }\n"
-    "  ]\n"
-    "}\n\n"
+    "{schema}\n\n"
     "Context (structured analysis snapshot, authoritative):\n"
     "{context}"
 )

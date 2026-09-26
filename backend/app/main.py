@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import CORS_ORIGINS
-from app.routers import analysis, documents, exports
+from app.routers import analysis, copilot, documents, exports
 
 app = FastAPI(
     title="AI Operational Risk Copilot API",
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(documents.router)
 app.include_router(analysis.router)
 app.include_router(exports.router)
+app.include_router(copilot.router)
 
 
 @app.get("/health", tags=["system"])

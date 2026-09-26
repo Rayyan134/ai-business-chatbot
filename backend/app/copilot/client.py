@@ -1,7 +1,7 @@
-"""Thin OpenAI wrapper for the synthesis phase.
+"""Thin OpenAI wrapper for the Risk Copilot LLM phase.
 
-The wrapper never logs the API key and returns None instead of raising when
-the LLM is unavailable, so callers can fall back to deterministic synthesis.
+Mirrors synthesis/client.py: the API key is read only server-side, and the
+wrapper returns None (never raises) so callers fall back to deterministic logic.
 """
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ import json
 
 from openai import OpenAI
 
-from app.analysis.synthesis.models import SynthesisOutput
-from app.analysis.synthesis.prompts import (
+from app.copilot.models import CopilotOutput
+from app.copilot.prompts import (
     RESPONSE_SCHEMA,
     SYSTEM_PROMPT,
     USER_PROMPT_TEMPLATE,
@@ -25,9 +25,9 @@ def _client() -> OpenAI | None:
     return OpenAI(api_key=OPENAI_API_KEY)
 
 
-def synthesize_with_llm(context: dict) -> SynthesisOutput | None:
-    """Return an LLM-produced SynthesisOutput, or None when the LLM is
-    unavailable (no API key) or the response cannot be validated."""
+def copilot_with_llm(context: dict, question: str) -> CopilotOutput | None:
+    """Return an LLM-produced CopilotOutput, or None when the LLM is unavailable
+    (no API key) or the response cannot be validated."""
     client = _client()
     if client is None:
         return None
@@ -37,6 +37,7 @@ def synthesize_with_llm(context: dict) -> SynthesisOutput | None:
     try:
         prompt = USER_PROMPT_TEMPLATE.format(
             context=json.dumps(context, ensure_ascii=False),
+            question=question,
             schema=RESPONSE_SCHEMA,
         )
         response = client.chat.completions.create(
@@ -52,8 +53,8 @@ def synthesize_with_llm(context: dict) -> SynthesisOutput | None:
         content = response.choices[0].message.content
         if not content:
             return None
-        return SynthesisOutput.model_validate_json(content)
+        return CopilotOutput.model_validate_json(content)
     except Exception:
-        # Any failure (auth, rate limit, malformed JSON, schema mismatch, prompt
-        # build) degrades to deterministic synthesis rather than failing the run.
+        # Any failure (auth, rate limit, malformed JSON, timeout, prompt build)
+        # degrades gracefully to the deterministic fallback.
         return None

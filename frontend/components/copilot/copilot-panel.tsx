@@ -14,14 +14,19 @@ import type { LucideIcon } from "lucide-react";
 import { ChatInput } from "@/components/copilot/chat-input";
 import { ChatMessage } from "@/components/copilot/chat-message";
 import { SuggestedPrompts } from "@/components/copilot/suggested-prompts";
+import { sendCopilotMessage } from "@/lib/api-client";
 import {
+  buildCopilotContext,
+  buildRealWelcomeMessage,
   documentContext,
   formatTime,
   resolveReply,
   suggestedQuestions,
+  toCopilotMessage,
   welcomeMessage,
 } from "@/lib/copilot-data";
 import type { CopilotMessage } from "@/lib/copilot-data";
+import type { AnalysisResult } from "@/lib/analysis-api-types";
 
 const contextIcons: Record<string, LucideIcon> = {
   "risk-register": FileSpreadsheet,
@@ -35,10 +40,29 @@ const RESPONSE_DELAY = 1100;
 interface CopilotPanelProps {
   open: boolean;
   onClose: () => void;
+  runId?: string | null;
+  resultId?: string | null;
+  analysisResult?: AnalysisResult | null;
 }
 
-export function CopilotPanel({ open, onClose }: CopilotPanelProps) {
-  const [messages, setMessages] = useState<CopilotMessage[]>([welcomeMessage]);
+function buildWelcomeMessage(
+  analysisResult: AnalysisResult | null | undefined,
+): CopilotMessage {
+  return analysisResult
+    ? buildRealWelcomeMessage(analysisResult)
+    : welcomeMessage;
+}
+
+export function CopilotPanel({
+  open,
+  onClose,
+  runId = null,
+  resultId = null,
+  analysisResult = null,
+}: CopilotPanelProps) {
+  const [messages, setMessages] = useState<CopilotMessage[]>(() => [
+    buildWelcomeMessage(analysisResult),
+  ]);
   const [isTyping, setIsTyping] = useState(false);
   const messagesRef = useRef<HTMLDivElement>(null);
   const replyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -55,6 +79,17 @@ export function CopilotPanel({ open, onClose }: CopilotPanelProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
 
+  // Reset the transcript to a freshly built welcome message when the underlying
+  // analysis result changes (e.g. client-side navigation to a different run).
+  // Adjusting state during render is the documented alternative to a
+  // setState-in-effect, which the React compiler lint rule rejects.
+  const activeResultId = analysisResult?.id ?? null;
+  const [lastResultId, setLastResultId] = useState(activeResultId);
+  if (activeResultId !== lastResultId) {
+    setLastResultId(activeResultId);
+    setMessages([buildWelcomeMessage(analysisResult)]);
+  }
+
   useEffect(() => {
     const element = messagesRef.current;
     if (element) element.scrollTop = element.scrollHeight;
@@ -67,18 +102,49 @@ export function CopilotPanel({ open, onClose }: CopilotPanelProps) {
   }, []);
 
   function sendMessage(text: string) {
-    const reply = resolveReply(text);
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `msg-${idRef.current++}`,
-        role: "user",
-        content: text,
-        timestamp: formatTime(new Date()),
-      },
-    ]);
+    const userMessage: CopilotMessage = {
+      id: `msg-${idRef.current++}`,
+      role: "user",
+      content: text,
+      timestamp: formatTime(new Date()),
+    };
+    setMessages((prev) => [...prev, userMessage]);
     setIsTyping(true);
 
+    const hasRealContext = Boolean(runId || resultId);
+
+    if (hasRealContext) {
+      sendCopilotMessage(buildCopilotContext(runId, resultId, text))
+        .then((response) => {
+          setMessages((prev) => [
+            ...prev,
+            toCopilotMessage(
+              response,
+              `msg-${idRef.current++}`,
+              formatTime(new Date()),
+            ),
+          ]);
+        })
+        .catch(() => {
+          // Network/backend failure: degrade to the deterministic demo reply.
+          const reply = resolveReply(text);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `msg-${idRef.current++}`,
+              role: "assistant",
+              content: reply.content,
+              timestamp: formatTime(new Date()),
+              confidence: reply.confidence,
+              sources: reply.sources,
+            },
+          ]);
+        })
+        .finally(() => setIsTyping(false));
+      return;
+    }
+
+    const reply = resolveReply(text);
     if (replyTimerRef.current) clearTimeout(replyTimerRef.current);
     replyTimerRef.current = setTimeout(() => {
       setMessages((prev) => [

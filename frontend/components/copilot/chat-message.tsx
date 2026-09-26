@@ -84,6 +84,20 @@ export function ChatMessage({ message }: ChatMessageProps) {
             ))}
           </div>
         ) : null}
+
+        {message.role === "assistant" &&
+        (message.warnings?.length ?? 0) > 0 ? (
+          <div className="mt-1.5 flex flex-col gap-1 px-1">
+            {message.warnings?.map((warning) => (
+              <span
+                key={warning}
+                className="text-[10px] leading-snug text-amber-600 dark:text-amber-400"
+              >
+                ⚠ {warning}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );

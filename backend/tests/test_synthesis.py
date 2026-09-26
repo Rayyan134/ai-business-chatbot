@@ -189,3 +189,99 @@ def test_llm_unavailable_falls_back_to_deterministic(_disable_llm):
     result = synthesize_result(aggregated)
     assert result.recommendations
     assert any("deterministically" in w for w in result.warnings)
+
+
+class TestPromptFormatting:
+    """Regression cover for the str.format()-on-JSON-braces defect.
+
+    The response schema used to live inline inside USER_PROMPT_TEMPLATE, so its
+    literal braces were parsed as replacement fields and raised KeyError as soon
+    as an OpenAI API key was configured.
+    """
+
+    def test_template_renders_without_keyerror(self):
+        import json
+
+        from app.analysis.synthesis.prompts import (
+            RESPONSE_SCHEMA,
+            USER_PROMPT_TEMPLATE,
+        )
+
+        context = json.dumps({"overallScore": {"score": 70}})
+        prompt = USER_PROMPT_TEMPLATE.format(context=context, schema=RESPONSE_SCHEMA)
+        assert context in prompt
+        assert RESPONSE_SCHEMA in prompt
+        assert "summaryParagraphs" in prompt
+
+    def test_template_contains_no_stray_literal_braces(self):
+        from app.analysis.synthesis.prompts import USER_PROMPT_TEMPLATE
+
+        # Only the two real placeholders may remain.
+        assert USER_PROMPT_TEMPLATE.count("{") == 2
+        assert USER_PROMPT_TEMPLATE.count("}") == 2
+
+    def test_successful_llm_response_is_parsed(self, monkeypatch):
+        import json
+        from types import SimpleNamespace
+
+        import app.analysis.synthesis.client as client
+
+        payload = json.dumps(
+            {
+                "summaryParagraphs": ["Executive summary line."],
+                "recommendations": [
+                    {
+                        "priority": "High",
+                        "category": "risk-register",
+                        "action": "Automate reconciliation",
+                        "impact": "Reduces exposure",
+                    }
+                ],
+                "managementActions": [
+                    {
+                        "action": "Approve tooling",
+                        "owner": "CFO",
+                        "department": "Finance",
+                        "dueDate": "2026-03-31",
+                        "priority": "High",
+                        "status": "Open",
+                    }
+                ],
+            }
+        )
+        captured: dict = {}
+
+        class _FakeCompletions:
+            def create(self, **kwargs):
+                captured.update(kwargs)
+                return SimpleNamespace(
+                    choices=[
+                        SimpleNamespace(message=SimpleNamespace(content=payload))
+                    ]
+                )
+
+        monkeypatch.setattr(
+            client, "_client", lambda: SimpleNamespace(
+                chat=SimpleNamespace(completions=_FakeCompletions())
+            )
+        )
+
+        output = client.synthesize_with_llm({"overallScore": {"score": 70}})
+
+        assert output is not None
+        assert output.summaryParagraphs == ["Executive summary line."]
+        assert output.recommendations[0].action == "Automate reconciliation"
+        # The rendered prompt must reach the model, schema included.
+        user_message = captured["messages"][1]["content"]
+        assert "summaryParagraphs" in user_message
+        assert captured["response_format"] == {"type": "json_object"}
+
+    def test_prompt_build_failure_degrades_instead_of_raising(self, monkeypatch):
+        import app.analysis.synthesis.client as client
+
+        monkeypatch.setattr(client, "_client", lambda: object())
+        monkeypatch.setattr(
+            client, "USER_PROMPT_TEMPLATE", "{missing_placeholder}"
+        )
+        # A prompt-building error must be swallowed so the run still succeeds.
+        assert client.synthesize_with_llm({}) is None
