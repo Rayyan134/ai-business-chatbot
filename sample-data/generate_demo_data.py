@@ -8,10 +8,19 @@ Produces the five files the analysis pipeline ingests:
   Operational Risk Policy.docx - short fictional policy (grounding material)
 
 The data is a single coherent story:
-  * the final MIS month (2026-07) matches the Risk Register population,
+  * Inherent Risk is derived from Likelihood x Impact, and Residual Risk is
+    derived from Inherent Risk plus an explicit, documented control-
+    effectiveness factor, so the register can never contradict itself;
+  * the final MIS month is derived from the Risk Register's residual
+    population rather than hardcoded,
   * audit findings map to the same themes as the top risks,
   * exceptions reinforce those themes,
   * remediation drives a gentle downward trend across the year.
+
+Every published number is computed from the data in this file. Nothing is
+tuned to reach a particular risk score, and the derived ratings follow the
+same thresholds the application itself uses in
+app.analysis.pipeline.normalization.combine_severity().
 
 Column names are chosen to be recognised by the existing header matchers in
 backend/app/analysis/pipeline/headers.py. No analysis logic is modified.
@@ -77,7 +86,12 @@ RISK_HEADERS = [
 
 # (id, description, category, division, likelihood, impact, inherent, residual,
 #  owner, mitigation, status, review_date)
-RISKS = [
+#
+# The inherent and residual strings are legacy authored placeholders only. They
+# are overwritten by the derivation below (see "Documented derivation of the
+# published risk ratings") so the register always agrees with its own
+# likelihood and impact values. Editing them here has no effect.
+RISK_SOURCE = [
     ("RISK-2026-001",
      "Privileged access to production systems is not revoked on role change, creating an insider threat on core banking platforms",
      "Cybersecurity / Tech", "Technology", 5, 5, "Critical", "Critical",
@@ -308,9 +322,96 @@ RISKS = [
      "In Progress", date(2026, 8, 31)),
 ]
 
-RISK_ROWS = [
-    list(row) for row in RISKS
-]
+# ---------------------------------------------------------------------------
+# 1b. Documented derivation of the published risk ratings
+# ---------------------------------------------------------------------------
+#
+# Inherent Risk
+# -------------
+# The standard 5x5 matrix result of Likelihood x Impact. The band thresholds are
+# deliberately identical to combine_severity() in
+# app/analysis/pipeline/normalization.py, so recomputing the column with the
+# application's own formula reproduces it exactly:
+#
+#     score >= 20 -> Critical
+#     score >= 10 -> High
+#     score >=  5 -> Medium
+#     otherwise    -> Low
+#
+# Residual Risk
+# -------------
+# The exposure that remains once the documented control is actually operating.
+# It is derived from the inherent score and one explicit control-effectiveness
+# factor read from the risk's own remediation state:
+#
+#     no mitigation text documented ..... factor 1.00
+#     status Open or Overdue ............. factor 1.00
+#     status In Progress ................. factor 0.75
+#     status Closed ...................... factor 0.50
+#
+#     residual_score = round(inherent_score * factor)
+#
+# An Open or Overdue risk therefore keeps its FULL inherent exposure, because a
+# control that is planned but not yet effective does not reduce residual risk.
+# No factor is chosen to make the register look better; the Open and Overdue
+# rows are deliberately left unreduced.
+
+_RATING_BANDS = ((20, "Critical"), (10, "High"), (5, "Medium"), (0, "Low"))
+
+_CONTROL_EFFECTIVENESS = {
+    "Open": 1.00,
+    "Overdue": 1.00,
+    "In Progress": 0.75,
+    "Closed": 0.50,
+}
+
+
+def _band(score: float) -> str:
+    for threshold, label in _RATING_BANDS:
+        if score >= threshold:
+            return label
+    return "Low"
+
+
+def _control_effectiveness_factor(mitigation: str, status: str) -> float:
+    if not str(mitigation or "").strip():
+        return 1.00
+    return _CONTROL_EFFECTIVENESS.get(str(status).strip(), 1.00)
+
+
+def _derive_ratings(
+    likelihood: int, impact: int, mitigation: str, status: str
+) -> tuple[str, str]:
+    inherent_score = int(likelihood) * int(impact)
+    factor = _control_effectiveness_factor(mitigation, status)
+    residual_score = round(inherent_score * factor)
+    return _band(inherent_score), _band(residual_score)
+
+
+# The authored rating placeholders carried in the tuples above are replaced by
+# the derivation here, so the emitted register always agrees with its own
+# likelihood and impact values. The number of overridden values is reported by
+# main() so the change stays auditable.
+RISKS: list[list] = []
+OVERRIDDEN_RATINGS = 0
+for _row in RISK_SOURCE:
+    _inherent, _residual = _derive_ratings(_row[4], _row[5], _row[9], _row[10])
+    if (_row[6], _row[7]) != (_inherent, _residual):
+        OVERRIDDEN_RATINGS += 1
+    RISKS.append([*_row[:6], _inherent, _residual, *_row[8:]])
+
+RISK_ROWS = [list(row) for row in RISKS]
+
+
+def residual_counts() -> dict[str, int]:
+    """Residual-rating population of the register, keyed by rating."""
+    counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
+    for row in RISKS:
+        counts[row[7]] += 1
+    return counts
+
+
+RESIDUAL_COUNTS = residual_counts()
 
 
 # ---------------------------------------------------------------------------
@@ -512,8 +613,8 @@ EXCEPTION_ROWS = [
 MIS_HEADERS = ["Metric ID", "Indicator", "Month", "Value", "Unit"]
 
 # (month, critical, high, medium, low) risk counts.
-# The final month (2026-07) matches the Risk Register population:
-# Critical 4, High 15, Medium 14, Low 5.
+# The final month (2026-07) is DERIVED from the register's residual population
+# (RESIDUAL_COUNTS) so the MIS snapshot and the register can never disagree.
 MIS_HISTORY = [
     ("2025-08", 6, 21, 20, 10),
     ("2025-09", 6, 20, 19, 10),
@@ -526,7 +627,13 @@ MIS_HISTORY = [
     ("2026-04", 4, 16, 16, 7),
     ("2026-05", 4, 16, 15, 6),
     ("2026-06", 4, 16, 15, 6),
-    ("2026-07", 4, 15, 14, 5),
+    (
+        "2026-07",
+        RESIDUAL_COUNTS["Critical"],
+        RESIDUAL_COUNTS["High"],
+        RESIDUAL_COUNTS["Medium"],
+        RESIDUAL_COUNTS["Low"],
+    ),
 ]
 
 _INDICATORS = (
@@ -649,11 +756,25 @@ def main() -> None:
     from collections import Counter
 
     distribution = Counter(row[7] for row in RISK_ROWS)
-    print(f"Risk distribution: {dict(distribution)}")
+    inherent_distribution = Counter(row[6] for row in RISK_ROWS)
     print(f"Risk rows: {len(RISK_ROWS)}")
+    print(f"Inherent distribution (derived from Likelihood x Impact): {dict(inherent_distribution)}")
+    print(f"Residual distribution (after control effectiveness):     {dict(distribution)}")
+    print(f"Authored rating placeholders replaced by derivation:    {OVERRIDDEN_RATINGS}")
     print(f"Audit rows: {len(AUDIT_ROWS)}")
     print(f"Exception rows: {len(EXCEPTION_ROWS)}")
     print(f"MIS rows: {len(MIS_ROWS)}")
+    print(f"Final MIS month (derived from register): {MIS_HISTORY[-1]}")
+
+    unreduced = sum(
+        1
+        for row in RISKS
+        if _control_effectiveness_factor(row[9], row[10]) == 1.00
+    )
+    print(
+        f"Risks carrying full inherent exposure (Open/Overdue or no control): "
+        f"{unreduced} of {len(RISKS)}"
+    )
 
 
 if __name__ == "__main__":

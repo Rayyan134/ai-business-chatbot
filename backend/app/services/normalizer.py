@@ -21,6 +21,11 @@ _FILE_EXTENSIONS = {
 
 def detect_category(filename: str) -> str:
     lower = filename.lower()
+    # "policy" is tested first because policy documents commonly contain the
+    # word "risk" in their title (e.g. "Operational Risk Policy.docx") and
+    # would otherwise be misfiled as a risk register.
+    if "policy" in lower:
+        return "policy"
     if "risk" in lower:
         return "risk-register"
     if "audit" in lower or "gia" in lower:
